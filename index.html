@@ -1,0 +1,161 @@
+<!-- Lu Huang, Jingzhu Yan -->
+<html>
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.states {
+  fill: #ccc;
+  stroke: #fff;
+}
+
+.symbol {
+  fill-opacity: .8;
+  stroke: #fff;
+}
+
+</style>
+<body>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://d3js.org/topojson.v1.min.js"></script>
+<script src="http://d3js.org/queue.v1.min.js"></script>
+<script>
+
+var width = 960,
+    height = 500;
+
+var path = d3.geo.path();
+
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+// load up the json files, and when we're done, call ready
+queue()
+    .defer(d3.json, "us.json")
+    .defer(d3.json, "us-state-centroids.json")
+    .await(ready);
+
+// keep these around for later
+var us,centroid;
+
+function ready(error, u, c) {
+
+  // store the values so we can use them later
+   us = u
+   centroid = c
+   max_population();
+   min_population();
+
+  // draw the states
+  svg.append("path")
+      .attr("class", "states")
+      .datum(topojson.feature(us, us.objects.states))
+      .attr("d", path);
+
+  // draw the symbols on top
+  svg.selectAll(".symbol")
+      .data(centroid.features.sort(function(a, b) { 
+        return b.properties.population - a.properties.population; 
+      }))
+    .enter().append("path")
+      .attr("class", "symbol")
+      .attr("fill","green")
+      .attr("d", path.pointRadius(function(d) { return 10 }))
+      .append("svg:title")
+        .text(function(d){
+          return d.properties.name + "\nPopulation " + d.properties.population;
+        });
+}
+// it's important to not use .text(function(d)), bz I have used "d" before, so it can't understand it.
+
+function recolor(color) {
+
+  // grab the symbol objects and modify their color 
+  // notice we don't need "enter" or "append" the objects are already there
+   svg.selectAll(".symbol")
+      .attr("fill",color);
+   svg.selectAll(".symbol").attr("d", path.pointRadius(function(d) { return 10 }));
+}
+
+var min = 0, max = 0;
+function min_population(){
+  min = centroid.features[0].properties.population;
+  for (x in centroid.features){
+    temp = centroid.features[x].properties.population;
+    if (temp < min)
+      min = temp;
+  }
+}
+console.log(min);
+
+ 
+function max_population(){
+  for (z in centroid.features){
+    temp = centroid.features[z].properties.population;
+    if (temp > max)
+      max = temp;
+  }
+}
+console.log(max);
+
+function changeColor() {
+  sqrtmap = d3.scale.log()
+  // pow().exponent(.5)
+              .domain([min,max])
+              .range(['white','#3F7CAC']);
+    
+  svg.selectAll(".symbol")
+      .attr("fill",function(d){
+        return sqrtmap(d.properties.population)
+      });
+}
+        
+
+
+
+function changeSize() {
+
+  sqrtmap = d3.scale.pow().exponent(.5)
+              .domain([min,max])
+              .range([5,50]);
+    
+  svg.selectAll(".symbol")
+      .attr("d", path.pointRadius(function(d) {
+        return sqrtmap(d.properties.population) }));
+}
+
+function changeColorSize(){
+  changeColor();
+  changeSize();
+}
+
+function animated() {
+  svg.selectAll(".symbol")
+    .transition()
+    .duration(1000)
+    .each("start", function() {
+                   d3.select(this)
+                     .attr("fill", "red")
+                     .attr("r", 7);
+              })
+              .transition()
+              .duration(1000)
+              .attr("fill", "green")
+              .attr("r", 2);
+}
+
+</script>
+
+
+<FORM>
+
+<INPUT TYPE="Button" value="Reset" onclick="recolor('green')"/> 
+<INPUT TYPE="Button" value="Map population to color" onclick="changeColor()"/> 
+<INPUT TYPE="Button" value="Map population to size" onclick="changeSize()"/> 
+<INPUT TYPE="Button" value="Map population to color + size" onclick="changeColorSize()"/> 
+<INPUT TYPE="Button" value="Animated" onclick="animated()"/> 
+</FORM>
+</body>
+</html>
